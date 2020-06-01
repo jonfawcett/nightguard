@@ -9,16 +9,27 @@
 import XCTest
 
 class scoutwatchUITests: XCTestCase {
-        
+    var app: XCUIApplication!
+
     override func setUp() {
         super.setUp()
         
         // Put setup code here. This method is called before the invocation of each test method in the class.
-        
+        addUIInterruptionMonitor(withDescription: "Accept disclaimer") { alert -> Bool in
+            if alert.alerts["Disclaimer!"].exists {
+                alert.alerts["Disclaimer!"].scrollViews.otherElements.buttons["Accept"].tap()
+                return true
+            }
+            return false
+        }
+
         // In UI tests it is usually best to stop immediately when a failure occurs.
         continueAfterFailure = false
+
         // UI tests must launch the application that they test. Doing this in setup will make sure it happens for each test method.
-        let app = XCUIApplication()
+        app = XCUIApplication()
+        setupSnapshot(app)
+        app.launchArguments.append("--uitesting")
         app.launchEnvironment["TEST"] = "1"
         app.launch()
 
@@ -29,18 +40,41 @@ class scoutwatchUITests: XCTestCase {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
         super.tearDown()
     }
-    
-    func testExample() {
-        // Use recording to get started writing UI tests.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+
+    func testTabsBars() {
+        let tabBarsQuery = app.tabBars
+        XCTAssertEqual(tabBarsQuery.buttons.count, 4)
+
+        // Refresh the Test-URL to refresh the correct Units (mg/dl) for the backend
+        tabBarsQuery.firstMatch.buttons.element(boundBy: 3).tap()
+        let tablecells = app.tables.cells
+        let urlTextField = tablecells.containing(.staticText, identifier:"URL").children(matching: .textField).element
+        // tap to refresh
+        urlTextField.tap()
+        urlTextField.typeText("\n")
         
-        let app = XCUIApplication()
+        tabBarsQuery.firstMatch.buttons.element(boundBy: 0).tap()
+        sleep(3)
+        //tabBarsQuery.buttons["Main"].tap()
+        snapshot("01-main")
         
-        let snoozeButton : XCUIElement = app.buttons["Snooze"]
-        snoozeButton.tap()
-        app.alerts["Snooze"].collectionViews.buttons["30 Minutes"].tap()
+        tabBarsQuery.firstMatch.buttons.element(boundBy: 1).tap()
+        //tabBarsQuery.buttons["Alarms"].tap()
+        snapshot("02-alarms")
         
-        //XCTAssertEqual("Snoozed for 30min", snoozeButton.title)
+        tabBarsQuery.firstMatch.buttons.element(boundBy: 2).tap()
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            // only on a phone is a rotation needed if using the statistics panel
+            XCUIDevice.shared.orientation = .landscapeLeft
+        }
+        sleep(6)
+        snapshot("03-stats")
+        
+        tabBarsQuery.firstMatch.buttons.element(boundBy: 3).tap()
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            XCUIDevice.shared.orientation = .portrait
+        }
+        sleep(1)
+        snapshot("04-preferences")
     }
-    
 }
